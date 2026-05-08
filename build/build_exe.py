@@ -71,7 +71,7 @@ build_dir = project_root / 'build'
 if build_dir.exists():
     # 只删除 build/ 目录中的 PyInstaller 临时文件，保留脚本和文档
     for item in build_dir.iterdir():
-        if item.name not in ['build_exe.py', 'README.md', 'hook_onnxruntime.py']:
+        if item.name not in ['build_exe.py', 'README.md', 'README_PACKAGING.md', 'hook_onnxruntime.py']:
             if item.is_dir():
                 shutil.rmtree(item)
                 log_info(f"已删除 {item.name}/")
