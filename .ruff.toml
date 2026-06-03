@@ -1,13 +1,3 @@
-line-length = 120
-exclude = [
-]
-
-
-[lint]
-select = [
-    "I",
-    "UP",
-    "E",
-    "F",
-    "PLC",
-]
+# 此文件已废弃
+# Ruff 配置已统一合并到 pyproject.toml 中的 [tool.ruff] 部分
+# 请使用 pyproject.toml 中的配置

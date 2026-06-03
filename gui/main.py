@@ -2,9 +2,10 @@
 Markdown Exporter GUI - 程序入口
 
 模块结构：
-  _version.py   版本信息
-  _dialogs.py   对话框（关于、覆盖确认）
-  _app.py       主应用类 MarkdownExporterGUI
+  _version.py    版本信息（与 pyproject.toml 同步）
+  _dialogs.py    对话框（关于、覆盖确认、文件锁定检测）
+  _app.py        主应用类 MarkdownExporterGUI
+  main.py        程序入口点
 """
 
 import os

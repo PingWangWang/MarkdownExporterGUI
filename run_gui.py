@@ -2,7 +2,12 @@
 Markdown Exporter GUI 启动脚本
 
 使用方法：
+  # 开发环境
   python run_gui.py
+
+  # 使用 uv 运行
+  uv run python run_gui.py
+  uv run run_gui.py
 """
 
 import os
