@@ -14,10 +14,12 @@ from __future__ import annotations
 import os
 import sys
 
-# 确保 gui/ 目录在 sys.path（开发环境 & PyInstaller 均适用）
+# 将项目根目录加入 sys.path，使 gui._app 等包限定导入在 PyInstaller
+# 模块分析阶段可被正确解析（打包环境 _MEIPASS 与根目录等效）
 _gui_dir = os.path.dirname(os.path.abspath(__file__))
-if _gui_dir not in sys.path:
-    sys.path.insert(0, _gui_dir)
+_project_root = os.path.dirname(_gui_dir)  # gui/ 的父目录 = 项目根目录
+if _project_root not in sys.path:
+    sys.path.insert(0, _project_root)
 
 # PyInstaller 打包环境：将 _MEIPASS 加入 sys.path
 _meipass = getattr(sys, "_MEIPASS", None)
@@ -41,7 +43,7 @@ try:
 except ImportError:
     _HAS_DND = False
 
-from _app import MarkdownExporterGUI  # noqa: E402
+from gui._app import MarkdownExporterGUI  # noqa: E402
 
 
 def main() -> None:

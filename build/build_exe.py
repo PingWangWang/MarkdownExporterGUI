@@ -155,11 +155,11 @@ cmd: list[str] = [
     "--workpath", str(project_root / "build"),
     "--specpath", str(project_root / "build"),
     # GUI 模块隐藏导入
-    "--hidden-import", "_version",
-    "--hidden-import", "_dialogs",
-    "--hidden-import", "_app",
-    "--hidden-import", "_conversion",
-    "--hidden-import", "_gui_helpers",
+    "--hidden-import", "gui._version",
+    "--hidden-import", "gui._dialogs",
+    "--hidden-import", "gui._app",
+    "--hidden-import", "gui._conversion",
+    "--hidden-import", "gui._gui_helpers",
     # md_exporter 核心模块
     "--hidden-import", "md_exporter",
     "--hidden-import", "md_exporter.services",
