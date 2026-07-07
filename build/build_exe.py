@@ -126,18 +126,70 @@ try:
         log_info("请安装 pypandoc-binary: pip install pypandoc-binary")
         sys.exit(1)
 
-    pandoc_dir = str(Path(pandoc_path).parent)
-    log_info(f"找到 Pandoc: {pandoc_path}")
+    # 当 get_pandoc_path() 返回短名（如 "pandoc"）时，
+    # 通过 shutil.which() 解析为完整路径（相容系统 PATH 安装方式）
+    resolved_path = shutil.which(pandoc_path) or pandoc_path
+    pandoc_dir = str(Path(resolved_path).parent)
+    log_info(f"找到 Pandoc: {resolved_path}")
     log_info(f"Pandoc 目录: {pandoc_dir}")
 
     pandoc_exe = Path(pandoc_dir) / ("pandoc.exe" if sys.platform == "win32" else "pandoc")
     if not pandoc_exe.exists():
-        log_error(f"Pandoc 可执行文件不存在: {pandoc_exe}")
-        sys.exit(1)
+        # [修改] 兜底：直接使用 resolved_path，适应 pandoc 短名场景
+        pandoc_exe = Path(resolved_path)
+        if not pandoc_exe.exists():
+            log_error(f"Pandoc 可执行文件不存在: {pandoc_exe}")
+            sys.exit(1)
 except ImportError:
     log_error("未找到 pypandoc 模块")
     log_info("请先安装: pip install pypandoc-binary")
     sys.exit(1)
+
+# ── 步骤 1.6: 修补第三方依赖 ────────────────────────────────────────────────
+
+def _patch_xhtml2pdf(venv_site_packages: Path) -> None:
+    """修补 xhtml2pdf 中的 getPlainText 缺陷。
+
+    xhtml2pdf 0.2.17 的 reportlab_paragraph.py 第1784行：
+      "".join([frag.text] for frag in frags ...)
+    将每个 frag.text 包裹在列表中，导致 str.join 报 TypeError。
+    将其修正为：
+      "".join(frag.text for frag in frags ...)
+    """
+    target = venv_site_packages / "xhtml2pdf" / "reportlab_paragraph.py"
+    if not target.exists():
+        log_error("未找到 xhtml2pdf 模块，跳过补丁")
+        return
+
+    content = target.read_text(encoding="utf-8")
+    old_code = 'return "".join([frag.text] for frag in frags if hasattr(frag, "text"))'
+    new_code = 'return "".join(frag.text for frag in frags if hasattr(frag, "text"))'
+
+    if new_code in content:
+        log_info("xhtml2pdf 补丁已存在，跳过")
+        return
+
+    if old_code not in content:
+        log_error("xhtml2pdf 代码异常：未找到需要修补的行")
+        log_info("可能是版本已更新，请检查 xhtml2pdf 版本")
+        return
+
+    content = content.replace(old_code, new_code)
+    target.write_text(content, encoding="utf-8")
+    log_success("xhtml2pdf 补丁已应用 (reportlab_paragraph.py:1784)")
+
+
+log_step("步骤 1.6: 修补第三方依赖")
+
+# 定位 site-packages 路径
+venv_site_packages = project_root / ".venv" / "Lib" / "site-packages"
+if not venv_site_packages.exists():
+    # 通过 Python 进程获取
+    import site as _site
+    venv_site_packages = Path(_site.getsitepackages()[0])
+
+log_info(f"site-packages: {venv_site_packages}")
+_patch_xhtml2pdf(venv_site_packages)
 
 # ── 步骤 2: 执行打包 ────────────────────────────────────────────────────────
 

@@ -40,7 +40,6 @@ def convert_to_html_with_font_support(md_text: str) -> str:
     css_style = f"""
     <style>
         html {{
-            -pdf-word-wrap: CJK;
             font-family: "{font_families}"; 
         }}
     </style>
