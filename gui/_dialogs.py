@@ -1,6 +1,7 @@
-"""Markdown Exporter GUI - 对话框组件。
+﻿"""Markdown Exporter GUI - 对话框组件。
 
 与 GUI 主类解耦，通过 DialogTheme 数据类传递样式参数。
+使用 ttkbootstrap 主题和原生窗口标题栏。
 
 核心组件：
   - DialogTheme       对话框样式数据类
@@ -20,6 +21,7 @@ import tkinter as tk
 import webbrowser
 from dataclasses import dataclass
 from pathlib import Path
+from tkinter import ttk
 from typing import Callable
 
 from gui._version import APP_VERSION
@@ -63,42 +65,34 @@ def _center_dialog(dlg: tk.Toplevel, parent: tk.Tk) -> None:
     dlg.grab_set()
 
 
-def _create_button(
-    parent: tk.Frame,
+def _create_ttk_button(
+    parent: ttk.Frame,
     text: str,
-    bg: str,
-    bg_hover: str,
+    style: str,
     cmd: Callable[[], None],
     *,
     padx: int = 6,
-) -> tk.Button:
-    """统一的按钮创建函数。
+) -> ttk.Button:
+    """创建统一风格的 ttk 按钮。
 
     Args:
         parent: 父容器。
         text: 按钮文本。
-        bg: 背景色。
-        bg_hover: 悬停背景色。
+        style: ttkbootstrap 样式名（如 ``"primary.TButton"``）。
         cmd: 点击回调。
-        padx: 水平内边距。
+        padx: 水平外间距。
 
     Returns:
-        创建的 Button 对象。
+        创建的 ttk.Button 对象。
     """
-    b = tk.Button(
+    b = ttk.Button(
         parent,
         text=text,
         width=8,
-        bg=bg,
-        fg="#FFFFFF",
-        relief="flat",
-        font=("Microsoft YaHei UI", 9, "bold"),
-        cursor="hand2",
+        style=style,
         command=cmd,
     )
     b.pack(side=tk.LEFT, padx=padx)
-    b.bind("<Enter>", lambda e: b.config(bg=bg_hover))
-    b.bind("<Leave>", lambda e: b.config(bg=bg))
     return b
 
 
@@ -106,31 +100,19 @@ def _create_button(
 
 
 def show_about(theme: DialogTheme) -> None:
-    """显示关于信息（自定义风格）。
+    """显示关于信息。
 
     Args:
         theme: 对话框样式。
     """
     dlg = tk.Toplevel(theme.root)
-    dlg.overrideredirect(True)
+    dlg.title(f"关于 Markdown Exporter v{APP_VERSION}")
     dlg.configure(bg=theme.bg)
     dlg.resizable(False, False)
 
-    # 标题栏
-    header = tk.Frame(dlg, bg=theme.header_bg, height=46)
-    header.pack(fill=tk.X)
-    header.pack_propagate(False)
-    tk.Label(
-        header,
-        text=f"关于  Markdown Exporter v{APP_VERSION}",
-        bg=theme.header_bg,
-        fg=theme.header_fg,
-        font=("Microsoft YaHei UI", 12, "bold"),
-    ).pack(side=tk.LEFT, padx=16, pady=8)
-
     # 内容区
-    body = tk.Frame(dlg, bg=theme.bg, padx=24, pady=16)
-    body.pack(fill=tk.BOTH)
+    body = ttk.Frame(dlg, padding="24 16 24 16")
+    body.pack(fill=tk.BOTH, expand=True)
 
     sections: list[tuple[str, list[str]]] = [
         (
@@ -150,39 +132,31 @@ def show_about(theme: DialogTheme) -> None:
     ]
 
     for title, items in sections:
-        tk.Label(
+        ttk.Label(
             body,
             text=title,
-            bg=theme.bg,
-            fg=theme.header_bg,
             font=("Microsoft YaHei UI", 10, "bold"),
         ).pack(anchor=tk.W, pady=(8, 2))
         for item in items:
             _add_about_item(body, item, theme)
 
-    # 底部
-    tk.Frame(dlg, bg=theme.border_color, height=1).pack(fill=tk.X, pady=(8, 0))
-    btn_frame = tk.Frame(dlg, bg=theme.bg, pady=10)
-    btn_frame.pack()
-    ok_btn = tk.Button(
+    # 分隔线 + 确定按钮
+    ttk.Separator(body, orient="horizontal").pack(fill=tk.X, pady=(8, 0))
+    btn_frame = ttk.Frame(body)
+    btn_frame.pack(pady=10)
+    ok_btn = ttk.Button(
         btn_frame,
         text="确  定",
         width=10,
-        bg=theme.btn_color,
-        fg="#FFFFFF",
-        relief="flat",
-        font=("Microsoft YaHei UI", 9, "bold"),
-        cursor="hand2",
+        style="primary.TButton",
         command=dlg.destroy,
     )
     ok_btn.pack()
-    ok_btn.bind("<Enter>", lambda e: ok_btn.config(bg=theme.btn_active))
-    ok_btn.bind("<Leave>", lambda e: ok_btn.config(bg=theme.btn_color))
 
     _center_dialog(dlg, theme.root)
 
 
-def _add_about_item(body: tk.Frame, item: str, theme: DialogTheme) -> None:
+def _add_about_item(body: ttk.Frame, item: str, theme: DialogTheme) -> None:
     """向关于对话框内容区添加一条项目。"""
     # URL 链接
     if "http://" in item or "https://" in item:
@@ -190,24 +164,20 @@ def _add_about_item(body: tk.Frame, item: str, theme: DialogTheme) -> None:
         prefix = item[:url_start].rstrip(": ").rstrip()
         url = item[url_start:]
 
-        item_frame = tk.Frame(body, bg=theme.bg)
+        item_frame = ttk.Frame(body)
         item_frame.pack(fill=tk.X, anchor=tk.W, pady=1)
 
         if prefix:
-            tk.Label(
+            ttk.Label(
                 item_frame,
-                text=f"  • {prefix}: ",
-                bg=theme.bg,
-                fg=theme.label_fg,
+                text=f"  \u2022 {prefix}: ",
                 font=("Microsoft YaHei UI", 9),
                 justify="left",
             ).pack(side=tk.LEFT, anchor=tk.W)
         else:
-            tk.Label(
+            ttk.Label(
                 item_frame,
-                text="  • ",
-                bg=theme.bg,
-                fg=theme.label_fg,
+                text="  \u2022 ",
                 font=("Microsoft YaHei UI", 9),
                 justify="left",
             ).pack(side=tk.LEFT, anchor=tk.W)
@@ -232,26 +202,22 @@ def _add_about_item(body: tk.Frame, item: str, theme: DialogTheme) -> None:
 
     # 普通文本
     else:
-        tk.Label(
+        ttk.Label(
             body,
-            text=f"  • {item}",
-            bg=theme.bg,
-            fg=theme.label_fg,
+            text=f"  \u2022 {item}",
             font=("Microsoft YaHei UI", 9),
             justify="left",
         ).pack(anchor=tk.W, pady=1)
 
 
-def _add_readme_link(body: tk.Frame, theme: DialogTheme) -> None:
+def _add_readme_link(body: ttk.Frame, theme: DialogTheme) -> None:
     """添加 README.md 可点击链接。"""
-    item_frame = tk.Frame(body, bg=theme.bg)
+    item_frame = ttk.Frame(body)
     item_frame.pack(fill=tk.X, anchor=tk.W, pady=1)
 
-    tk.Label(
+    ttk.Label(
         item_frame,
-        text="  • ",
-        bg=theme.bg,
-        fg=theme.label_fg,
+        text="  \u2022 ",
         font=("Microsoft YaHei UI", 9),
         justify="left",
     ).pack(side=tk.LEFT, anchor=tk.W)
@@ -321,37 +287,22 @@ def ask_overwrite(
 
     def _show() -> None:
         dlg = tk.Toplevel(theme.root)
-        dlg.overrideredirect(True)
+        dlg.title("文件已存在")
         dlg.configure(bg=theme.bg)
         dlg.resizable(False, False)
 
-        # 标题栏
-        header = tk.Frame(dlg, bg="#E67E22", height=36)
-        header.pack(fill=tk.X)
-        header.pack_propagate(False)
-        tk.Label(
-            header,
-            text="文件已存在",
-            bg="#E67E22",
-            fg="#FFFFFF",
-            font=("Microsoft YaHei UI", 10, "bold"),
-        ).pack(side=tk.LEFT, padx=12, pady=6)
-
-        # 内容区
-        body = tk.Frame(dlg, bg=theme.bg, padx=20, pady=16)
-        body.pack(fill=tk.BOTH)
-        tk.Label(
+        body = ttk.Frame(dlg, padding="20 16 20 16")
+        body.pack(fill=tk.BOTH, expand=True)
+        ttk.Label(
             body,
-            text=f"「{filename}」已存在，是否覆盖？",
-            bg=theme.bg,
-            fg=theme.label_fg,
+            text=f"\u300c{filename}\u300d已存在，是否覆盖？",
             font=("Microsoft YaHei UI", 10),
             wraplength=340,
             justify="left",
         ).pack(anchor=tk.W)
 
-        btn_frame = tk.Frame(dlg, bg=theme.bg, pady=10)
-        btn_frame.pack()
+        btn_frame = ttk.Frame(body)
+        btn_frame.pack(pady=10)
 
         def on_overwrite_one() -> None:
             result[0] = True
@@ -362,13 +313,13 @@ def ask_overwrite(
             dlg.destroy()
 
         if is_multi:
-            _create_button(btn_frame, "本次覆盖", theme.btn_run, theme.btn_run_hover, on_overwrite_one)
-            _create_button(btn_frame, "全部覆盖", "#8E44AD", "#6C3483", lambda: _set_overwrite_all_and_close(dlg, result))
-            _create_button(btn_frame, "本次跳过", theme.btn_color, theme.btn_active, on_skip)
-            _create_button(btn_frame, "全部跳过", "#7F8C8D", "#626567", lambda: _set_skip_all_and_close(dlg, result))
+            _create_ttk_button(btn_frame, "本次覆盖", "success.TButton", on_overwrite_one)
+            _create_ttk_button(btn_frame, "全部覆盖", "primary.TButton", lambda: _set_overwrite_all_and_close(dlg, result))
+            _create_ttk_button(btn_frame, "本次跳过", "info.TButton", on_skip)
+            _create_ttk_button(btn_frame, "全部跳过", "secondary.TButton", lambda: _set_skip_all_and_close(dlg, result))
         else:
-            _create_button(btn_frame, "覆  盖", theme.btn_run, theme.btn_run_hover, on_overwrite_one, padx=8)
-            _create_button(btn_frame, "跳  过", theme.btn_color, theme.btn_active, on_skip, padx=8)
+            _create_ttk_button(btn_frame, "覆  盖", "success.TButton", on_overwrite_one, padx=8)
+            _create_ttk_button(btn_frame, "跳  过", "info.TButton", on_skip, padx=8)
 
         _center_dialog(dlg, theme.root)
         dlg.wait_window()
@@ -382,7 +333,6 @@ def ask_overwrite(
 def _set_overwrite_all_and_close(dlg: tk.Toplevel, result: list[bool]) -> None:
     """标记"全部覆盖"并关闭对话框。"""
     result[0] = True
-    # 通过特殊标记通知调用方
     dlg._overwrite_all = True  # type: ignore[attr-defined]
     dlg.destroy()
 
@@ -423,37 +373,22 @@ def ask_overwrite_batch(
 
     def _show() -> None:
         dlg = tk.Toplevel(theme.root)
-        dlg.overrideredirect(True)
+        dlg.title("文件已存在")
         dlg.configure(bg=theme.bg)
         dlg.resizable(False, False)
 
-        # 标题栏
-        header = tk.Frame(dlg, bg="#E67E22", height=36)
-        header.pack(fill=tk.X)
-        header.pack_propagate(False)
-        tk.Label(
-            header,
-            text="文件已存在",
-            bg="#E67E22",
-            fg="#FFFFFF",
-            font=("Microsoft YaHei UI", 10, "bold"),
-        ).pack(side=tk.LEFT, padx=12, pady=6)
-
-        # 内容区
-        body = tk.Frame(dlg, bg=theme.bg, padx=20, pady=16)
-        body.pack(fill=tk.BOTH)
-        tk.Label(
+        body = ttk.Frame(dlg, padding="20 16 20 16")
+        body.pack(fill=tk.BOTH, expand=True)
+        ttk.Label(
             body,
-            text=f"「{filename}」已存在，是否覆盖？",
-            bg=theme.bg,
-            fg=theme.label_fg,
+            text=f"\u300c{filename}\u300d已存在，是否覆盖？",
             font=("Microsoft YaHei UI", 10),
             wraplength=340,
             justify="left",
         ).pack(anchor=tk.W)
 
-        btn_frame = tk.Frame(dlg, bg=theme.bg, pady=10)
-        btn_frame.pack()
+        btn_frame = ttk.Frame(body)
+        btn_frame.pack(pady=10)
 
         def on_overwrite_one() -> None:
             result[0] = True
@@ -473,10 +408,10 @@ def ask_overwrite_batch(
             new_skip_all[0] = True
             dlg.destroy()
 
-        _create_button(btn_frame, "本次覆盖", theme.btn_run, theme.btn_run_hover, on_overwrite_one)
-        _create_button(btn_frame, "全部覆盖", "#8E44AD", "#6C3483", on_overwrite_all)
-        _create_button(btn_frame, "本次跳过", theme.btn_color, theme.btn_active, on_skip)
-        _create_button(btn_frame, "全部跳过", "#7F8C8D", "#626567", on_skip_all)
+        _create_ttk_button(btn_frame, "本次覆盖", "success.TButton", on_overwrite_one)
+        _create_ttk_button(btn_frame, "全部覆盖", "primary.TButton", on_overwrite_all)
+        _create_ttk_button(btn_frame, "本次跳过", "info.TButton", on_skip)
+        _create_ttk_button(btn_frame, "全部跳过", "secondary.TButton", on_skip_all)
 
         _center_dialog(dlg, theme.root)
         dlg.wait_window()
@@ -505,48 +440,31 @@ def ask_file_locked(theme: DialogTheme, filename: str) -> bool:
 
     def _show() -> None:
         dlg = tk.Toplevel(theme.root)
-        dlg.overrideredirect(True)
+        dlg.title("文件被占用")
         dlg.configure(bg=theme.bg)
         dlg.resizable(False, False)
 
-        # 标题栏
-        header = tk.Frame(dlg, bg="#E74C3C", height=36)
-        header.pack(fill=tk.X)
-        header.pack_propagate(False)
-        tk.Label(
-            header,
-            text="文件被占用",
-            bg="#E74C3C",
-            fg="#FFFFFF",
-            font=("Microsoft YaHei UI", 10, "bold"),
-        ).pack(side=tk.LEFT, padx=12, pady=6)
+        body = ttk.Frame(dlg, padding="20 16 20 16")
+        body.pack(fill=tk.BOTH, expand=True)
 
-        # 内容区
-        body = tk.Frame(dlg, bg=theme.bg, padx=20, pady=16)
-        body.pack(fill=tk.BOTH)
-
-        tk.Label(
+        ttk.Label(
             body,
-            text=f"「{filename}」正在被其他程序打开，\n无法覆盖保存。",
-            bg=theme.bg,
-            fg=theme.label_fg,
+            text=f"\u300c{filename}\u300d正在被其他程序打开，\n无法覆盖保存。",
             font=("Microsoft YaHei UI", 10),
             wraplength=340,
             justify="center",
         ).pack(anchor=tk.CENTER, pady=(0, 8))
 
-        tk.Label(
+        ttk.Label(
             body,
             text="请关闭该文件后重试，或选择跳过。",
-            bg=theme.bg,
-            fg="#7F8C8D",
             font=("Microsoft YaHei UI", 9),
             wraplength=340,
             justify="center",
         ).pack(anchor=tk.CENTER)
 
-        btn_frame = tk.Frame(dlg, bg=theme.bg, pady=10)
-        btn_frame.pack()
+        btn_frame = ttk.Frame(body)
+        btn_frame.pack(pady=10)
 
         def on_retry() -> None:
             result[0] = True
@@ -556,8 +474,10 @@ def ask_file_locked(theme: DialogTheme, filename: str) -> bool:
             result[0] = False
             dlg.destroy()
 
-        _create_button(btn_frame, "关闭后重试", theme.btn_run, theme.btn_run_hover, on_retry, padx=8)
-        _create_button(btn_frame, "跳  过", theme.btn_color, theme.btn_active, on_skip, padx=8)
+        _create_ttk_button(
+            btn_frame, "关闭后重试", "success.TButton", on_retry, padx=8,
+        )
+        _create_ttk_button(btn_frame, "跳  过", "info.TButton", on_skip, padx=8)
 
         _center_dialog(dlg, theme.root)
         dlg.wait_window()

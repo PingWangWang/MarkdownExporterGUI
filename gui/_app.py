@@ -1,11 +1,11 @@
-"""Markdown Exporter GUI - 主应用类。
+﻿"""Markdown Exporter GUI - 主应用类。
 
 仅负责 GUI 渲染和用户交互，业务逻辑委托给 ConversionService。
 
 包含 MarkdownExporterGUI 类：
   - 窗口初始化与图标设置
-  - 界面样式（颜色常量 + ttk 主题）
-  - 界面构建（输入/输出区域、格式选择、日志、底部链接）
+  - 界面样式（ttkbootstrap 主题驱动）
+  - 界面构建（输入/输出区域、格式选择、日志、底部链接、主题切换）
   - 文件选择、目录操作
   - 文件处理（多线程转换，委托给 ConversionService）
   - 对话框委托（关于、覆盖确认）
@@ -36,6 +36,7 @@ from gui._gui_helpers import (
     parse_dnd_paths,
     resolve_log_tag,
 )
+from gui._theme_manager import ThemeManager
 from gui._version import APP_VERSION
 
 # UI 尺寸常量
@@ -50,13 +51,17 @@ class MarkdownExporterGUI:
 
     Args:
         root: Tkinter 根窗口。
+        theme_manager: ThemeManager 实例，管理 ttkbootstrap 主题。
         has_dnd: 是否支持拖拽（tkinterdnd2）。
     """
 
     # ── 初始化 ────────────────────────────────────────────────────────────
 
-    def __init__(self, root: tk.Tk, *, has_dnd: bool = False) -> None:
+    def __init__(
+        self, root: tk.Tk, theme_manager: ThemeManager, *, has_dnd: bool = False,
+    ) -> None:
         self.root = root
+        self._tm = theme_manager
         self.has_dnd = has_dnd
         self.root.title(f"Markdown Exporter v{APP_VERSION}")
 
@@ -82,24 +87,6 @@ class MarkdownExporterGUI:
         self.template_path = tk.StringVar()
         self.save_mermaid_images = tk.BooleanVar(value=False)
         self.convert_mermaid_images = tk.BooleanVar(value=False)
-
-        # 样式常量（在 setup_styles 中初始化）
-        self.C_BG: str = ""
-        self.C_HEADER_BG: str = ""
-        self.C_HEADER_FG: str = ""
-        self.C_PANEL_BG: str = ""
-        self.C_LABEL_FG: str = ""
-        self.C_ENTRY_BG: str = ""
-        self.C_BTN_SEL: str = ""
-        self.C_BTN_SEL_A: str = ""
-        self.C_BTN_RUN: str = ""
-        self.C_BTN_RUN_A: str = ""
-        self.C_BTN_OPEN: str = ""
-        self.C_BTN_OPEN_A: str = ""
-        self.C_LOG_BG: str = ""
-        self.C_LOG_FG: str = ""
-        self.C_LINK: str = ""
-        self.C_BORDER: str = ""
 
         # 转换服务（在 _create_conversion_service 中初始化）
         self._conversion: ConversionService | None = None
@@ -152,26 +139,27 @@ class MarkdownExporterGUI:
         missing = check_dependencies()
         if missing:
             self.log_message(
-                f"⚠ 检测到缺失依赖: {', '.join(missing)}\n"
+                f"\u26a0 检测到缺失依赖: {', '.join(missing)}\n"
                 f"  请运行: uv sync"
             )
 
     # ── 对话框主题 ────────────────────────────────────────────────────────
 
     def _get_dialog_theme(self) -> DialogTheme:
-        """创建对话框样式数据对象。"""
+        """从 ThemeManager 创建对话框样式数据对象。"""
+        c = self._tm.colors
         return DialogTheme(
             root=self.root,
-            bg=self.C_BG,
-            header_bg=self.C_HEADER_BG,
-            header_fg=self.C_HEADER_FG,
-            label_fg=self.C_LABEL_FG,
-            btn_color=self.C_BTN_SEL,
-            btn_hover=self.C_BTN_SEL_A,
-            btn_run=self.C_BTN_RUN,
-            btn_run_hover=self.C_BTN_RUN_A,
-            border_color=self.C_BORDER,
-            btn_active=self.C_BTN_SEL_A,
+            bg=c["bg"],
+            header_bg=c["header_bg"],
+            header_fg=c["header_fg"],
+            label_fg=c["label_fg"],
+            btn_color=c["primary"],
+            btn_hover=c["primary"],  # ttkbootstrap 自动处理 hover
+            btn_run=c["success"],
+            btn_run_hover=c["success"],
+            border_color=c["border"],
+            btn_active=c["primary"],
         )
 
     # ── 图标 ──────────────────────────────────────────────────────────────
@@ -223,91 +211,33 @@ class MarkdownExporterGUI:
     # ── 样式 ──────────────────────────────────────────────────────────────
 
     def setup_styles(self) -> None:
-        """定义配色常量并配置 ttk 主题。"""
-        self.C_BG = "#F5F7FA"
-        self.C_HEADER_BG = "#4A90D9"
-        self.C_HEADER_FG = "#FFFFFF"
-        self.C_PANEL_BG = "#FFFFFF"
-        self.C_LABEL_FG = "#374151"
-        self.C_ENTRY_BG = "#EEF2FF"
-        self.C_BTN_SEL = "#4A90D9"
-        self.C_BTN_SEL_A = "#357ABD"
-        self.C_BTN_RUN = "#27AE60"
-        self.C_BTN_RUN_A = "#1E8449"
-        self.C_BTN_OPEN = "#E67E22"
-        self.C_BTN_OPEN_A = "#CA6F1E"
-        self.C_LOG_BG = "#FFFFFF"
-        self.C_LOG_FG = "#000000"
-        self.C_LINK = "#2E86C1"
-        self.C_BORDER = "#D1D9E6"
+        """配置 ttkbootstrap 主题驱动的样式。
 
-        self.root.configure(bg=self.C_BG)
-        s = ttk.Style()
-        s.theme_use("clam")
+        颜色和基础样式由 ThemeManager / ttkbootstrap 自动管理。
+        这里只配置自定义 style 名称的字体等非颜色属性。
+        """
+        s = self._tm.style
 
+        # 设置全局默认字体
+        s.configure(".", font=("Microsoft YaHei UI", 9))
+
+        # 自定义按钮样式 — 使用 ttkbootstrap 已内置的语义样式
+        # primary/success/info/warning/danger.TButton 已由 ttkbootstrap 定义
+        # 我们只需配置额外的非语义样式
+        s.configure("ThemeToggle.TButton", font=("Microsoft YaHei UI", 9))
+
+        # 标签样式 — 字体覆盖
+        s.configure("Field.TLabel", font=("Microsoft YaHei UI", 9))
+        s.configure("Log.TLabel", font=("Microsoft YaHei UI", 9))
         s.configure(
-            ".", background=self.C_BG, foreground=self.C_LABEL_FG,
+            "Link.TLabel",
+            font=("Microsoft YaHei UI", 9, "underline"),
+            cursor="hand2",
+        )
+        s.configure(
+            "Hint.TLabel",
             font=("Microsoft YaHei UI", 9),
-        )
-        s.configure("TFrame", background=self.C_BG)
-        s.configure("Panel.TFrame", background=self.C_PANEL_BG, relief="flat", borderwidth=1)
-        s.configure("TLabel", background=self.C_BG, foreground=self.C_LABEL_FG)
-        s.configure(
-            "Field.TLabel", background=self.C_BG, foreground=self.C_LABEL_FG,
-            font=("Microsoft YaHei UI", 9),
-        )
-        s.configure(
-            "Log.TLabel", background=self.C_BG, foreground="#6B7280",
-            font=("Microsoft YaHei UI", 9),
-        )
-        s.configure(
-            "Link.TLabel", background=self.C_BG, foreground=self.C_LINK,
-            cursor="hand2", font=("Microsoft YaHei UI", 9, "underline"),
-        )
-        s.configure(
-            "Hint.TLabel", background=self.C_BG, foreground="#6B7280",
-            cursor="hand2", font=("Microsoft YaHei UI", 9),
-        )
-        s.configure(
-            "TEntry", fieldbackground=self.C_ENTRY_BG, foreground="#1F2937",
-            bordercolor=self.C_BORDER, insertcolor=self.C_LABEL_FG,
-        )
-        s.configure(
-            "TCombobox", fieldbackground=self.C_ENTRY_BG, foreground="#1F2937",
-            bordercolor=self.C_BORDER,
-        )
-
-        s.configure(
-            "Select.TButton", background=self.C_BTN_SEL, foreground="#FFFFFF",
-            font=("Microsoft YaHei UI", 9, "bold"), borderwidth=0,
-            focusthickness=0, padding=(8, 4),
-        )
-        s.map(
-            "Select.TButton",
-            background=[("active", self.C_BTN_SEL_A), ("disabled", "#A0AEC0")],
-            foreground=[("disabled", "#E2E8F0")],
-        )
-
-        s.configure(
-            "Run.TButton", background=self.C_BTN_RUN, foreground="#FFFFFF",
-            font=("Microsoft YaHei UI", 10, "bold"), borderwidth=0,
-            focusthickness=0, padding=(12, 6),
-        )
-        s.map(
-            "Run.TButton",
-            background=[("active", self.C_BTN_RUN_A), ("disabled", "#A0AEC0")],
-            foreground=[("disabled", "#E2E8F0")],
-        )
-
-        s.configure(
-            "Open.TButton", background=self.C_BTN_OPEN, foreground="#FFFFFF",
-            font=("Microsoft YaHei UI", 10, "bold"), borderwidth=0,
-            focusthickness=0, padding=(12, 6),
-        )
-        s.map(
-            "Open.TButton",
-            background=[("active", self.C_BTN_OPEN_A)],
-            foreground=[],
+            cursor="hand2",
         )
 
     # ── 界面构建 ──────────────────────────────────────────────────────────
@@ -343,44 +273,44 @@ class MarkdownExporterGUI:
         ff = ttk.Frame(mf)
         ff.grid(row=row, column=1, sticky=(tk.W, tk.E), pady=4)
         ff.columnconfigure(0, weight=1)
-        list_frame = tk.Frame(
-            ff, bg=self.C_ENTRY_BG,
-            highlightbackground=self.C_BORDER, highlightthickness=1,
-        )
+
+        # 文件列表 — 使用 ttk.Treeview 替代 tk.Listbox，自动适配主题
+        list_frame = ttk.Frame(ff)
         list_frame.grid(row=0, column=0, sticky=(tk.W, tk.E), padx=(0, 6))
         list_frame.columnconfigure(0, weight=1)
-        self.file_listbox = tk.Listbox(
+
+        self.file_treeview = ttk.Treeview(
             list_frame,
+            columns=("filename",),
+            show="headings",
             height=DEFAULT_LISTBOX_HEIGHT,
-            selectmode=tk.EXTENDED,
-            bg=self.C_ENTRY_BG,
-            fg="#1F2937",
-            selectbackground="#4A90D9",
-            selectforeground="#FFFFFF",
-            font=("Microsoft YaHei UI", 9),
-            relief="flat",
-            borderwidth=0,
-            activestyle="none",
+            selectmode="extended",
         )
-        self.file_listbox.grid(row=0, column=0, sticky=(tk.W, tk.E), padx=4, pady=2)
-        list_sb = ttk.Scrollbar(list_frame, orient=tk.VERTICAL, command=self.file_listbox.yview)
-        list_sb.grid(row=0, column=1, sticky=(tk.N, tk.S), pady=2)
-        self.file_listbox.configure(yscrollcommand=list_sb.set)
+        self.file_treeview.heading("filename", text="文件名")
+        self.file_treeview.column("filename", width=400, minwidth=200)
+        self.file_treeview.grid(row=0, column=0, sticky=(tk.W, tk.E), padx=0, pady=0)
+        list_sb = ttk.Scrollbar(
+            list_frame, orient=tk.VERTICAL, command=self.file_treeview.yview,
+        )
+        self.file_treeview.configure(yscrollcommand=list_sb.set)
+        list_sb.grid(row=0, column=1, sticky=(tk.N, tk.S))
+
+        # 操作按钮列
         btn_col = ttk.Frame(ff)
         btn_col.grid(row=0, column=1, sticky=tk.N)
         ttk.Button(
             btn_col, text="添加文件", command=self.select_files,
-            style="Select.TButton", width=10,
+            style="primary.TButton", width=10,
         ).pack(pady=(0, 4))
         ttk.Button(
             btn_col, text="删除选中", command=self.remove_selected_files,
-            style="Select.TButton", width=10,
+            style="danger.TButton", width=10,
         ).pack(pady=(0, 4))
         ttk.Button(
             btn_col, text="清空列表", command=self.clear_files,
-            style="Select.TButton", width=10,
+            style="warning.TButton", width=10,
         ).pack()
-        self.file_listbox.bind("<Delete>", lambda e: self.remove_selected_files())
+        self.file_treeview.bind("<Delete>", lambda e: self.remove_selected_files())
         return row + 1
 
     def _create_output_dir_section(self, mf: ttk.Frame, row: int) -> int:
@@ -396,7 +326,7 @@ class MarkdownExporterGUI:
         )
         ttk.Button(
             sf, text="保存位置", command=self.select_output_dir,
-            style="Select.TButton", width=10,
+            style="primary.TButton", width=10,
         ).grid(row=0, column=1)
         return row + 1
 
@@ -429,7 +359,7 @@ class MarkdownExporterGUI:
         template_entry.grid(row=0, column=1, sticky=(tk.W, tk.E), padx=(0, 6))
         self.select_template_btn = ttk.Button(
             tf, text="选择模板", command=self.select_template,
-            style="Select.TButton", width=10, state="disabled",
+            style="primary.TButton", width=10, state="disabled",
         )
         self.select_template_btn.grid(row=0, column=2)
         self.template_frame = tf
@@ -437,7 +367,9 @@ class MarkdownExporterGUI:
 
     def _create_mermaid_convert_section(self, mf: ttk.Frame, row: int) -> int:
         """转换 Mermaid 图片选项区域。"""
-        self.convert_mermaid_label = ttk.Label(mf, text="转换 Mermaid 图片:", style="Field.TLabel")
+        self.convert_mermaid_label = ttk.Label(
+            mf, text="转换 Mermaid 图片:", style="Field.TLabel",
+        )
         self.convert_mermaid_label.grid(row=row, column=0, sticky=tk.W, pady=4, padx=(0, 8))
         mf3 = ttk.Frame(mf)
         mf3.grid(row=row, column=1, sticky=(tk.W, tk.E), pady=4)
@@ -457,7 +389,9 @@ class MarkdownExporterGUI:
 
     def _create_mermaid_save_section(self, mf: ttk.Frame, row: int) -> int:
         """保存 Mermaid 图片选项区域。"""
-        self.save_mermaid_label = ttk.Label(mf, text="保存 Mermaid 图片:", style="Field.TLabel")
+        self.save_mermaid_label = ttk.Label(
+            mf, text="保存 Mermaid 图片:", style="Field.TLabel",
+        )
         self.save_mermaid_label.grid(row=row, column=0, sticky=tk.W, pady=4, padx=(0, 8))
         mf2 = ttk.Frame(mf)
         mf2.grid(row=row, column=1, sticky=(tk.W, tk.E), pady=4)
@@ -478,18 +412,24 @@ class MarkdownExporterGUI:
         bf.grid(row=row, column=0, columnspan=2, pady=4)
         self.process_button = ttk.Button(
             bf, text="▶  开始转换", command=self.start_processing,
-            style="Run.TButton", width=14,
+            style="success.TButton", width=14,
         )
         self.process_button.pack(side=tk.LEFT, padx=6)
         ttk.Button(
             bf, text="📂  打开输出目录", command=self.open_output_dir,
-            style="Open.TButton", width=14,
+            style="info.TButton", width=14,
         ).pack(side=tk.LEFT, padx=6)
         self.open_doc_button = ttk.Button(
             bf, text="📄  打开文档", command=self.open_last_document,
-            style="Open.TButton", width=12, state="disabled",
+            style="info.TButton", width=12, state="disabled",
         )
         self.open_doc_button.pack(side=tk.LEFT, padx=6)
+        # 主题切换按钮
+        self.theme_toggle_btn = ttk.Button(
+            bf, text="🌙 暗色", command=self._toggle_theme,
+            style="ThemeToggle.TButton", width=8,
+        )
+        self.theme_toggle_btn.pack(side=tk.RIGHT, padx=6)
         return row + 1
 
     def _create_log_section(self, mf: ttk.Frame, row: int) -> int:
@@ -505,22 +445,34 @@ class MarkdownExporterGUI:
             variable=self.debug_logging, command=self._on_debug_logging_change,
         )
         debug_check.grid(row=0, column=0, sticky=tk.W)
+        c = self._tm.colors
         self.log_text = scrolledtext.ScrolledText(
             mf,
             height=DEFAULT_LOG_HEIGHT,
             wrap=tk.WORD,
             font=("Consolas", 9),
-            bg=self.C_LOG_BG,
-            fg=self.C_LOG_FG,
-            insertbackground=self.C_LOG_FG,
-            selectbackground="#4A90D9",
-            selectforeground="#FFFFFF",
+            bg=c["log_bg"],
+            fg=c["log_fg"],
+            insertbackground=c["log_fg"],
+            selectbackground=c["select_bg"],
+            selectforeground=c["select_fg"],
             relief="flat",
             borderwidth=0,
             state="disabled",
         )
         self.log_text.grid(row=row + 1, column=1, sticky=(tk.W, tk.E, tk.N, tk.S), pady=(2, 2))
         mf.rowconfigure(row + 1, weight=1)
+        # 注册原生控件，使主题切换时自动刷新颜色（延迟求值）
+        self._tm.watch(
+            self.log_text,
+            refresh_callback=lambda c: {
+                "bg": c["log_bg"],
+                "fg": c["log_fg"],
+                "insertbackground": c["log_fg"],
+                "selectbackground": c["select_bg"],
+                "selectforeground": c["select_fg"],
+            },
+        )
         for tag, color in [
             ("success", "#00AA00"),
             ("error", "#CC0000"),
@@ -530,7 +482,7 @@ class MarkdownExporterGUI:
             ("complete", "#0066CC"),
             ("summary", "#CC6600"),
             ("service", "#666666"),
-            ("normal", self.C_LOG_FG),
+            ("normal", c["log_fg"]),
         ]:
             self.log_text.tag_configure(tag, foreground=color)
         return row + 2
@@ -610,6 +562,19 @@ class MarkdownExporterGUI:
         else:
             self.log_message("[信息] 已关闭详细日志模式")
 
+    # ── 主题切换 ──────────────────────────────────────────────────────────
+
+    def _toggle_theme(self) -> None:
+        """一键切换明暗主题。"""
+        self._tm.toggle()
+        # 更新主题切换按钮文本
+        btn_text = "☀️ 亮色" if self._tm.is_dark else "🌙 暗色"
+        self.theme_toggle_btn.configure(text=btn_text)
+
+        # 刷新对话按钮等未注册的控件颜色
+        c = self._tm.colors
+        self.log_text.tag_configure("normal", foreground=c["log_fg"])
+
     # ── 日志 ──────────────────────────────────────────────────────────────
 
     def log_message(self, message: str) -> None:
@@ -634,27 +599,29 @@ class MarkdownExporterGUI:
         self._add_files(list(files))
 
     def _add_files(self, files: list[str]) -> None:
-        """将文件添加到列表（自动去重）。"""
+        """将文件添加到树形视图（自动去重）。"""
         existing = set(self.input_files)
         new_files = [f for f in files if f not in existing]
         for f in new_files:
             self.input_files.append(f)
-            self.file_listbox.insert(tk.END, Path(f).name)
+            self.file_treeview.insert("", tk.END, values=(Path(f).name,))
         if not self.output_dir.get() and self.input_files:
             self.output_dir.set(str(Path(self.input_files[0]).parent))
 
     def clear_files(self) -> None:
         """清空文件列表。"""
         self.input_files = []
-        self.file_listbox.delete(0, tk.END)
+        for item in self.file_treeview.get_children():
+            self.file_treeview.delete(item)
         self.output_dir.set("")
 
     def remove_selected_files(self) -> None:
         """删除选中的文件。"""
-        selected = list(self.file_listbox.curselection())
-        for i in reversed(selected):
-            self.file_listbox.delete(i)
-            del self.input_files[i]
+        selected = self.file_treeview.selection()
+        for item_id in reversed(selected):
+            index = self.file_treeview.index(item_id)
+            self.file_treeview.delete(item_id)
+            del self.input_files[index]
 
     def select_output_dir(self) -> None:
         """选择输出目录。"""

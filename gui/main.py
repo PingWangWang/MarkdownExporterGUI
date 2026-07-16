@@ -1,9 +1,10 @@
-"""Markdown Exporter GUI - 程序入口。
+﻿"""Markdown Exporter GUI - 程序入口。
 
 模块结构：
   _version.py       版本信息（从 pyproject.toml 动态读取）
   _gui_helpers.py   公共工具函数
   _dialogs.py       对话框（关于、覆盖确认、文件锁定检测）
+  _theme_manager.py 主题管理器（ttkbootstrap 主题 + 明暗切换）
   _conversion.py    转换业务逻辑层
   _app.py           主应用类 MarkdownExporterGUI
   main.py           程序入口点
@@ -43,13 +44,30 @@ try:
 except ImportError:
     _HAS_DND = False
 
+import ttkbootstrap  # noqa: E402
+
 from gui._app import MarkdownExporterGUI  # noqa: E402
+from gui._theme_manager import ThemeManager  # noqa: E402
 
 
 def main() -> None:
-    """启动 GUI 主窗口。"""
+    """启动 GUI 主窗口。
+
+    创建 DnD 兼容的根窗口，附加 ttkbootstrap 主题，然后启动主循环。
+    """
+    # 必须先创建窗口再附加主题，以兼容 tkinterdnd2
     root: tk.Tk = TkinterDnD.Tk() if _HAS_DND else tk.Tk()
-    MarkdownExporterGUI(root, has_dnd=_HAS_DND)
+
+    # 在根窗口上创建 ttkbootstrap 主题
+    # TkinterDnD.Tk() / tk.Tk() 已设置 tkinter._default_root，
+    # ttkbootstrap.Style 会自动使用它，无需显式传递 master 参数。
+    style = ttkbootstrap.Style(theme="flatly")
+
+    # 创建主题管理器
+    theme_manager = ThemeManager(style)
+
+    # 启动主应用
+    MarkdownExporterGUI(root, theme_manager=theme_manager, has_dnd=_HAS_DND)
     root.mainloop()
 
 
